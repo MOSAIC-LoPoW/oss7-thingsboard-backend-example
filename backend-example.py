@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import argparse
 import socket
 import subprocess
@@ -20,18 +21,35 @@ from d7a.system_files.system_file_ids import SystemFileIds
 from d7a.system_files.system_files import SystemFiles
 from modem.modem import Modem
 
+import time
+from pprint import pprint
+
+from tb_api_client import swagger_client
+from tb_api_client.swagger_client import ApiClient, Configuration
+from tb_api_client.swagger_client.rest import ApiException
+
 
 class BackendExample:
   def __init__(self):
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-v", "--verbose", help="verbose", default=False, action="store_true")
-    argparser.add_argument("-b", "--broker", help="mqtt broker hostname",
-                           default="localhost")
+    argparser.add_argument("-b", "--broker", help="mqtt broker hostname", default="localhost")
+    argparser.add_argument("-u", "--url", help="URL of the thingsboard server", default="http://localhost:8080")
+    argparser.add_argument("-t", "--token", help="token to access the thingsboard API", required=True)
     self.mq = None
     self.connected_to_mqtt = False
 
     self.config = argparser.parse_args()
     self.connect_to_mqtt()
+
+    api_client_config = Configuration()
+    api_client_config.host = self.config.url
+    api_client_config.api_key['X-Authorization'] = self.config.token
+    api_client_config.api_key_prefix['X-Authorization'] = 'Bearer'
+    api_client = ApiClient(api_client_config)
+
+    self.device_controller_api = swagger_client.DeviceControllerApi(api_client=api_client)
+    self.device_api_controller_api =swagger_client.DeviceApiControllerApi(api_client=api_client)
 
   def connect_to_mqtt(self):
     self.connected_to_mqtt = False
@@ -67,10 +85,30 @@ class BackendExample:
       node_id = '{:x}'.format(cmd.interface_status.operand.interface_status.addressee.id)
 
     # look for returned file data which we can parse, in this example file 64
+    my_sensor_value = 0
     for action in cmd.actions:
       if type(action.operation) is ReturnFileData and action.operand.offset.id == 64:
-        value = struct.unpack("L", bytearray(action.operand.data))[0] # parse binary payload (adapt to your needs)
-        print("node {} sensor value {}".format(node_id, value))
+        my_sensor_value = struct.unpack("L", bytearray(action.operand.data))[0] # parse binary payload (adapt to your needs)
+        print("node {} sensor value {}".format(node_id, my_sensor_value))
+
+    # save the parsed sensor data as an attribute to the device, using the TB API
+    try:
+      # first get the deviceId mapped to the device name
+      response = self.device_controller_api.get_tenant_device_using_get(device_name=str(node_id))
+      device_id = response.id.id
+
+      # next, get the access token of the device
+      response = self.device_controller_api.get_device_credentials_by_device_id_using_get(device_id=device_id)
+      device_access_token = response.credentials_id
+
+      response = self.device_api_controller_api.post_device_attributes_using_post(
+        device_token=device_access_token,
+        json={ "my_sensor": my_sensor_value }
+      )
+
+      print("Updated my_sensor attribute for node {}".format(node_id))
+    except ApiException as e:
+      print("Exception when calling API: %s\n" % e)
 
 
   def __del__(self):
