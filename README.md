@@ -2,9 +2,14 @@
 
 This project is closely related to the [oss7-thingsboard-gateway](https://github.com/MOSAIC-LoPoW/oss7-thingsboard-gateway) project, which allows to integrate an OSS-7 gateway with [ThingsBoard](https://github.com/thingsboard/thingsboard).
 This project builds on top of the gateway and ThingsBoard platform and show how to build an application on top of this platform.
-Thingsboard is configured to forward all DASH7 ALP commands to an external MQTT broker. This example subscribes to this broker and parser the ALP commands.
+Thingsboard is configured to forward all DASH7 ALP commands to an external MQTT broker. 
+
+The `backend-example.py` example subscribes to this broker and parser the ALP commands.
 The parsing happens here so we don't need to integrate the business logic and parsing logic in ThingsBoard. However, after the sensor value is parsed it is 
 stored as an attribute attached to the device in ThingsBoard using it's API. In this way ThingsBoard contains all data (ie a digital twin of the devices).
+
+The `gateway-command-example.py` shows how you can execute custom ALP commands on the modem in the GW (or the remote nodes reachable by the GW over DASH7), 
+using thingsboard RPC API. In this example the ALP command used will switch the active access profile of the GW, allowing for instance to switch frequency band which is used for scanning.
 
 # Installation
 
