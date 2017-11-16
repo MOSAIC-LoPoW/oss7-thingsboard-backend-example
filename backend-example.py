@@ -102,7 +102,7 @@ class BackendExample:
       device_access_token = response.credentials_id
 
       # finally, store the sensor attribute on the node in TB
-      response = self.device_api_controller_api.post_device_attributes_using_post(
+      response = self.device_api_controller_api.post_telemetry_using_post(
         device_token=device_access_token,
         json={ "my_sensor": my_sensor_value }
       )
